@@ -27,5 +27,7 @@ fi
 
 echo "Building with $CC"
 "$CC" -O2 -o "$DIR/mmc_probe" "$DIR/mmc_probe.c"
+STRIP="$NDK_ROOT/$NDK_VER/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+[ -x "$STRIP" ] && "$STRIP" "$DIR/mmc_probe"
 file "$DIR/mmc_probe"
 echo "Built: $DIR/mmc_probe"

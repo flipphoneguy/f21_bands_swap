@@ -118,15 +118,6 @@ int main(int argc, char **argv) {
     }
 
     if (!strcmp(cmd, "reinit")) {
-        /* CMD0 GO_IDLE_STATE: forces the eMMC into idle. The ioctl will
-         * usually return ETIMEDOUT because the kernel's MMC layer expects
-         * the card to remain in TRAN state. The kernel's error-recovery
-         * path then re-issues a full init sequence (CMD0, CMD1, CMD2,
-         * CMD3, CMD7, ...), which resets the eMMC's volatile session
-         * state -- including the per-power-cycle CMD29 honor quota.
-         *
-         * After this returns we sleep briefly to let the kernel finish
-         * its recovery before subsequent commands. */
         struct mmc_ioc_cmd c = {0};
         c.write_flag = 0;
         c.opcode = MMC_GO_IDLE_STATE;
@@ -135,9 +126,6 @@ int main(int argc, char **argv) {
         int r = ioctl(fd, MMC_IOC_CMD, &c);
         printf("CMD0 GO_IDLE_STATE: ioctl=%d (errno=%d ETIMEDOUT=110 is expected)\n",
                r, r < 0 ? errno : 0);
-        usleep(200 * 1000);  /* 200ms for kernel error-recovery to finish */
-        /* Verify by reading EXT_CSD; if the card is back in TRAN state,
-         * the kernel recovered and we're ready for SWITCH+CMD29. */
         unsigned char ext[512] = {0};
         struct mmc_ioc_cmd c2 = {0};
         c2.opcode = MMC_SEND_EXT_CSD;
@@ -145,12 +133,23 @@ int main(int argc, char **argv) {
         c2.blksz = 512;
         c2.blocks = 1;
         mmc_ioc_cmd_set_data(c2, ext);
-        if (ioctl(fd, MMC_IOC_CMD, &c2) < 0) {
-            perror("post-reinit ext_csd read");
+        int csd_ok = 0;
+        int last_errno = 0;
+        int waited_ms = 0;
+        for (int i = 0; i < 30; i++) {
+            usleep(200 * 1000);
+            waited_ms += 200;
+            if (ioctl(fd, MMC_IOC_CMD, &c2) == 0) { csd_ok = 1; break; }
+            last_errno = errno;
+        }
+        if (!csd_ok) {
+            errno = last_errno;
+            fprintf(stderr, "post-reinit ext_csd read failed after %dms: ", waited_ms);
+            perror(NULL);
             return 1;
         }
-        printf("post-reinit USR_WP[171]=0x%02x BOOT_WP[173]=0x%02x\n",
-               ext[171], ext[173]);
+        printf("post-reinit USR_WP[171]=0x%02x BOOT_WP[173]=0x%02x (recovered in %dms)\n",
+               ext[171], ext[173], waited_ms);
         return 0;
     }
 
