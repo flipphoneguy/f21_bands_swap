@@ -21,7 +21,7 @@ The on-device live-flash flow this app ships was reverse-engineered, validated e
 
 ## Install
 
-Download the [latest release](releases/latest) from the [releases](releases) below.
+Download the [latest release](https://github.com/flipphoneguy/f21_bands_swap/releases/latest) from the [releases](https://github.com/flipphoneguy/f21_bands_swap/releases) below.
 
 ```sh
 adb install -r F21BandsSwap.apk
