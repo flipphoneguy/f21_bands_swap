@@ -34,6 +34,19 @@ Open the app, accept the root prompt, follow the on-screen flow:
 3. The app backs up your current bands, runs the eMMC unlock dance, flashes the new bands, and sysrq-reboots. Total wall-clock is dominated by the backup compression step: roughly 1–2 minutes on MT6761, mostly spent compressing the 100 MB modem partition through the pure-Java LZMA encoder at PRESET_MIN. The eMMC unlock + dd flash itself is under 10 seconds.
 4. After the reboot, re-provision IMEI / BT MAC / WiFi MAC using [mtk-imei-switcheroo-app](https://github.com/flipphoneguy/mtk-imei-switcheroo-app) — the freshly-flashed nvram contains placeholder values, not your phone's identifiers.
 
+## Run from Termux (no APK, no host PC)
+
+If you'd rather skip the APK and run the swap from an on-device Termux shell, [`tools/termux_swap.sh`](tools/termux_swap.sh) is a one-shot wrapper that downloads the target region's blob, `mmc_probe`, and `tools/swap.sh`, stages them via `su`, and invokes the same flash procedure the app uses. From Termux:
+
+```sh
+F21_BANDS_RAW=https://raw.githubusercontent.com/flipphoneguy/f21_bands_swap/main \
+  curl -fsSL "$F21_BANDS_RAW/tools/termux_swap.sh" | sh -s us
+```
+
+Fully written and tested by [alltechdev](https://github/flipphoneguy/alltechdev)
+
+Substitute `stock` for `us` to flash the other direction. The script auto-installs any missing Termux packages (`curl`, `tar`, `xz-utils`) and triggers the Magisk grant prompt up front before the ~21 MiB download so you click Allow once and walk away. Same post-flash step as the APK path: re-provision IMEI / BT MAC / WiFi MAC with [mtk-imei-switcheroo-app](https://github.com/flipphoneguy/mtk-imei-switcheroo-app). Unlike the app, this path does **not** back up your current bands before flashing — if you want a backup, dump the four partitions yourself first (see Recovery).
+
 ## Recovery
 
 The pre-flash backup blob lives at `/data/data/com.flipphoneguy.f21bands/files/bands_<region>.tar.xz`. If a flash fails or you want to revert manually, pull it, `tar -xJf`, and `dd` the four `.bin` files to their partitions from a recovery shell. The in-app "swap back" path runs the same flow with the previously-backed-up region as the new target.
@@ -51,6 +64,7 @@ The full reverse-engineering trail, including every wrong turn, is in:
 - [`tools/mmc_probe`](tools/mmc_probe) — prebuilt arm64 binary; bundled in the APK as `assets/mmc_probe`.
 - [`tools/build.sh`](tools/build.sh) — NDK cross-compile wrapper.
 - [`tools/swap.sh`](tools/swap.sh) — standalone reproduction of the in-app swap procedure, for use from `adb shell`. Stages partition images on `/sdcard/` rather than streaming via stdin.
+- [`tools/termux_swap.sh`](tools/termux_swap.sh) — Termux one-shot wrapper around `tools/swap.sh`. Downloads the target region's blob, `mmc_probe`, and `swap.sh`, stages everything via `su`, then runs the swap. Self-bootstraps missing Termux packages and pre-triggers the Magisk grant so the whole flow is unattended after the first Allow tap.
 
 ## Build
 
