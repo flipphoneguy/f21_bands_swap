@@ -1,6 +1,7 @@
 # F21 Bands Swap
 
-# DO NOT USE THE APP YET!! STILL IN INITIAL TESTING STAGES!!!
+> # ⚠️ DO NOT USE!! WILL BRICK MODEM!!
+> Test confirmed a big issue with the way the phone writes the partitions. The way it is now, the app will brick the service. Currently lookik into it. i  the meamtime do not use the app!
 
 One-tap modem-band swapping (US / International) for the rooted DuoQin F21 (pre-v3).
 
