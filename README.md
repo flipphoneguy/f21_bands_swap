@@ -14,7 +14,14 @@ One-tap on-device band swap (US ↔ stock) for the rooted DuoQin F21 Pro (pre-v3
 - `dd`s the four target partitions to `/dev/block/mmcblk0` at the canonical sector offsets, with the loaded blob streamed straight into the orchestration shell's stdin (no /sdcard staging, no 260 MiB of temp expansion).
 - `sysrq-b` reboots the device immediately after the writes, skipping the normal shutdown sync so the mounted ext4 driver doesn't clobber `nvcfg`/`nvdata` with its stale pagecache.
 
+
+## Credits
+
+The on-device live-flash flow this app ships was reverse-engineered, validated end-to-end, and documented by [alltechdev](https://github.com/alltechdev) in [`docs/live_band_swap_solution.md`](docs/live_band_swap_solution.md). The four primitives that make it work — CMD0 GO_IDLE_STATE to refresh the eMMC's per-power-cycle CMD29 honor quota, CMD6 SWITCH on `EXT_CSD[171]` to flip `US_PWR_WP_EN`, the settle delay between SWITCH and CMD29 to dodge the silent-no-op race, and the `sysrq-b` reboot to skip the ext4 shutdown sync that would otherwise clobber the writes — are alltechdev's findings. This app is the wrapper; the engineering is theirs.
+
 ## Install
+
+Download the [latest release](releases/latest) from the [releases](releases) below.
 
 ```sh
 adb install -r F21BandsSwap.apk
@@ -61,9 +68,7 @@ Modifying an IMEI is illegal in some jurisdictions. You are responsible for chec
 
 See [LICENSE](LICENSE).
 
-## Credits
-
-The on-device live-flash flow this app ships was reverse-engineered, validated end-to-end, and documented by [alltechdev](https://github.com/alltechdev) in [`docs/live_band_swap_solution.md`](docs/live_band_swap_solution.md). The four primitives that make it work — CMD0 GO_IDLE_STATE to refresh the eMMC's per-power-cycle CMD29 honor quota, CMD6 SWITCH on `EXT_CSD[171]` to flip `US_PWR_WP_EN`, the settle delay between SWITCH and CMD29 to dodge the silent-no-op race, and the `sysrq-b` reboot to skip the ext4 shutdown sync that would otherwise clobber the writes — are alltechdev's findings. This app is the wrapper; the engineering is theirs.
+# Links
 
 - [alltechdev](https://github.com/alltechdev)
 - [mtk-imei-switcheroo-app](https://github.com/flipphoneguy/mtk-imei-switcheroo-app) — companion app for reprovisioning IMEI/BT/WiFi after a swap
