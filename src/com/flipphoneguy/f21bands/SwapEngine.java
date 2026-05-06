@@ -63,29 +63,69 @@ public final class SwapEngine {
 
         File backupBlob = BlobLoader.blobFile(ctx, currentRegion);
         File backupTmp = new File(ctx.getFilesDir(), backupBlob.getName() + ".part");
+        // Stale .part from a previously aborted swap: drop it so we don't
+        // accidentally rename half-written content over a fresh backup.
+        if (backupTmp.exists()) {
+            //noinspection ResultOfMethodCallIgnored
+            backupTmp.delete();
+        }
 
         int total = Constants.PARTITION_FILES.length;
 
-        // ── 1. Stream live partitions → xz/tar → backup blob.
+        // ── 1. Stream live partitions → xz/tar (PRESET_MIN) → backup blob.
+        // PRESET_MIN keeps XZ-format compatibility with downloaded blobs while
+        // running ~5-10x faster than PRESET_DEFAULT on MT6761 (the level-6
+        // LZMA encoder pure-Java is 0.3-0.5 MB/s; level-0 ≈ 3-5 MB/s).
         FileOutputStream rawFos = new FileOutputStream(backupTmp);
-        try (OutputStream raw = new BufferedOutputStream(rawFos);
-             XZOutputStream xz = new XZOutputStream(raw, new LZMA2Options(LZMA2Options.PRESET_DEFAULT))) {
+        BufferedOutputStream raw = new BufferedOutputStream(rawFos);
+        // Wrap raw in a non-closing filter so XZOutputStream.close() doesn't
+        // cascade-close the FileOutputStream before we get to fsync it.
+        OutputStream rawNoClose = new java.io.FilterOutputStream(raw) {
+            @Override public void close() throws IOException { flush(); }
+            @Override public void write(byte[] b, int off, int len) throws IOException {
+                out.write(b, off, len);
+            }
+        };
+        XZOutputStream xz = new XZOutputStream(rawNoClose, new LZMA2Options(LZMA2Options.PRESET_MIN));
+        boolean cleanClose = false;
+        final Context fctx = ctx;
+        final ProgressListener flistener = listener;
+        try {
             for (int i = 0; i < total; i++) {
-                if (listener != null) listener.step(ctx.getString(
-                    R.string.step_backup_part, Constants.PARTITION_FILES[i], i + 1, total));
-                TarStream.writeHeader(xz, Constants.PARTITION_FILES[i], Constants.PARTITION_SIZES[i]);
+                final int part = i;
+                final long sz = Constants.PARTITION_SIZES[i];
+                final String name = Constants.PARTITION_FILES[i];
+                final int totalParts = total;
+                if (flistener != null) flistener.step(fctx.getString(
+                    R.string.step_backup_part, name, part + 1, totalParts));
+                TarStream.writeHeader(xz, name, sz);
                 RootRunner.streamPartitionToOut(
                     Constants.PARTITION_DEVICES[i],
-                    Constants.PARTITION_SIZES[i],
-                    xz);
-                TarStream.writePad(xz, Constants.PARTITION_SIZES[i]);
+                    sz,
+                    xz,
+                    new RootRunner.ByteProgressListener() {
+                        @Override public void onBytes(long sofar, long totalBytes) {
+                            if (flistener != null) flistener.step(fctx.getString(
+                                R.string.step_backup_part_progress,
+                                name, part + 1, totalParts,
+                                sofar / 1024 / 1024, totalBytes / 1024 / 1024));
+                        }
+                    });
+                TarStream.writePad(xz, sz);
             }
             TarStream.writeEnd(xz);
             xz.finish();
-            // Force the backup to durable storage before sysrq-b reboot, so a
-            // mid-flash crash leaves a recoverable backup rather than a partial
-            // pagecache resident copy.
-            rawFos.getFD().sync();
+            xz.close();              // → rawNoClose.close() → flush only (raw stays open)
+            raw.flush();             // ensure BufferedOutputStream is empty
+            rawFos.getFD().sync();   // fsync content to disk before close
+            raw.close();             // closes rawFos
+            cleanClose = true;
+        } finally {
+            if (!cleanClose) {
+                try { xz.close(); } catch (Throwable ignored) {}
+                try { raw.close(); } catch (Throwable ignored) {}
+                try { rawFos.close(); } catch (Throwable ignored) {}
+            }
         }
 
         if (backupBlob.exists() && !backupBlob.delete()) {
@@ -95,6 +135,32 @@ public final class SwapEngine {
         }
         if (!backupTmp.renameTo(backupBlob)) {
             throw new IOException("Cannot rename backup");
+        }
+
+        // Force the rename's directory entry change AND any tail page-cache
+        // pages to disk before we touch any mmcblk0 partition. `sync` returns
+        // when the kernel has handed the data to the eMMC, but the eMMC
+        // controller's own volatile write cache may still be uncommitted in
+        // its NAND for a few seconds after that. Phase 2 then issues CMD0
+        // GO_IDLE_STATE (mmc_probe reinit) which resets eMMC session state,
+        // and finally sysrq-b cuts power abruptly. A tester reported the
+        // SECOND backup of two consecutive swaps missing after reboot — the
+        // first phase 1 ran 5 min (PRESET_DEFAULT, since changed to PRESET_MIN)
+        // giving the controller plenty of time to writeback naturally; the
+        // second phase 1 ran ~1 min, leaving the file in volatile cache when
+        // CMD0 + sysrq-b hit. The fix: sync, sleep 5s for the controller to
+        // commit, sync once more in case anything dirtied during the sleep.
+        if (listener != null) listener.step(ctx.getString(R.string.step_backup_sync));
+        RootRunner.Result syncRes = RootRunner.run("sync && sleep 5 && sync");
+        if (syncRes.exit != 0) {
+            throw new IOException("sync after backup failed (exit "
+                + syncRes.exit + "): " + syncRes.stderr);
+        }
+        if (!backupBlob.isFile() || backupBlob.length() < 1024) {
+            throw new IOException("Backup blob missing or empty after sync ("
+                + backupBlob.getName() + ", "
+                + (backupBlob.exists() ? backupBlob.length() + " bytes" : "no file")
+                + ") — refusing to flash, your current bands are unchanged");
         }
 
         // ── 2. Live flash via mmc_probe + sysrq-b reboot.
@@ -261,6 +327,11 @@ public final class SwapEngine {
         s.append("PROBE='").append(probe.getAbsolutePath()).append("'\n");
         s.append("DEV='").append(Constants.MMCBLK0).append("'\n");
         s.append("\n");
+        // Belt-and-suspenders: flush once more before CMD0 GO_IDLE_STATE, so
+        // any page-cache pages dirtied between the Java-side sync and now
+        // (e.g., this very script being written to disk) reach the eMMC
+        // before the reinit potentially disrupts uncommitted writes.
+        s.append("sync\n");
         s.append("\"$PROBE\" \"$DEV\" reinit\n");
         s.append("\"$PROBE\" \"$DEV\" switch 1 171 0x10\n");
         s.append("\"$PROBE\" \"$DEV\" ext_csd > /dev/null\n");
@@ -283,10 +354,24 @@ public final class SwapEngine {
         s.append("esac\n");
         s.append("\n");
         for (int i = 0; i < Constants.PARTITION_FILES.length; i++) {
+            // dd reading from stdin with bs=4096 and a Java BufferedOutputStream
+            // writer 1 MB ahead reliably gets full 4096-byte reads in practice
+            // (the pipe buffer stays full, so each read() returns the requested
+            // size). iflag=fullblock would be the defensive way to enforce this
+            // but the toybox shipped on F21 pre-v3 rejects "fullblock" as an
+            // unknown flag value, aborting the dd before it does anything.
             s.append("dd of=\"$DEV\" bs=4096 seek=").append(Constants.PARTITION_4K_SEEK[i])
              .append(" count=").append(Constants.PARTITION_4K_COUNT[i])
              .append(" conv=notrunc  # ").append(Constants.PARTITION_FILES[i]).append("\n");
         }
+        // Two-stage flush before sysrq-b: first sync hands data to eMMC,
+        // sleep gives the controller time to commit volatile cache to NAND,
+        // second sync is in case anything dirtied during the sleep. Without
+        // this, sysrq-b can race ahead of an in-flight commit and silently
+        // drop the most recently written file (the backup .tar.xz lives on
+        // userdata, not the modem partitions, so it's vulnerable too).
+        s.append("sync\n");
+        s.append("sleep 2\n");
         s.append("sync\n");
         s.append("\n");
         s.append("echo 1 > /proc/sys/kernel/sysrq\n");

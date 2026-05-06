@@ -24,7 +24,8 @@ Open the app, accept the root prompt, follow the on-screen flow:
 
 1. Tap **Download** to fetch the target region's blob (~20 MB) into app private storage. Or tap **Pick file** if you already have it.
 2. Tap **Swap to <target>**. Confirm the warning.
-3. The app backs up your current bands, runs the eMMC unlock dance, flashes the new bands, and sysrq-reboots. Total wall-clock ~10 seconds plus the reboot.
+3. The app backs up your current bands, runs the eMMC unlock dance, flashes the new bands, and sysrq-reboots. Total wall-clock is dominated by the backup compression step: roughly 1–2 minutes on MT6761, mostly spent compressing the 100 MB modem partition through the pure-Java LZMA encoder at PRESET_MIN. The eMMC unlock + dd flash itself is under 10 seconds.
+4. After the reboot, re-provision IMEI / BT MAC / WiFi MAC using [mtk-imei-switcheroo-app](https://github.com/flipphoneguy/mtk-imei-switcheroo-app) — the freshly-flashed nvram contains placeholder values, not your phone's identifiers.
 
 ## Recovery
 

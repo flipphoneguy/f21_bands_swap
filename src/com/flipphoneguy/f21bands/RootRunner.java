@@ -71,25 +71,62 @@ public final class RootRunner {
         return sb.toString();
     }
 
+    public interface ByteProgressListener {
+        void onBytes(long sofar, long total);
+    }
+
     /** Streams `bytes` bytes from a partition through `dd` into the provided OutputStream. */
     public static void streamPartitionToOut(String device, long bytes, OutputStream out)
+            throws IOException, InterruptedException {
+        streamPartitionToOut(device, bytes, out, null);
+    }
+
+    public static void streamPartitionToOut(String device, long bytes, OutputStream out,
+                                            ByteProgressListener progress)
             throws IOException, InterruptedException {
         long blocks = bytes / Constants.DD_BS;
         Process p = Runtime.getRuntime().exec(new String[]{"su", "-c",
             "dd if=" + device + " bs=4M count=" + blocks + " 2>/dev/null"});
         p.getOutputStream().close();
+        // Drain stderr so a chatty su/sh can't fill the 64 KB pipe and deadlock dd.
+        Thread errPump = startStderrDrain(p, "rr-dump-stderr");
         try (InputStream in = p.getInputStream()) {
-            byte[] buf = new byte[1024 * 1024];
+            byte[] buf = new byte[256 * 1024];
             long remaining = bytes;
+            long lastReported = -1;
             int n;
             while (remaining > 0 && (n = in.read(buf, 0, (int) Math.min(buf.length, remaining))) > 0) {
                 out.write(buf, 0, n);
                 remaining -= n;
+                if (progress != null) {
+                    long sofar = bytes - remaining;
+                    // Throttle UI callbacks to every ~1 MB so we don't flood the looper.
+                    if (sofar - lastReported >= 1024 * 1024 || remaining == 0) {
+                        progress.onBytes(sofar, bytes);
+                        lastReported = sofar;
+                    }
+                }
             }
             if (remaining != 0) throw new IOException("dd dump short read: " + remaining + " left");
         }
         int exit = p.waitFor();
+        try { errPump.join(2000); } catch (InterruptedException ignored) {}
         if (exit != 0) throw new IOException("dd dump exited " + exit);
+    }
+
+    private static Thread startStderrDrain(final Process p, String name) {
+        final InputStream err = p.getErrorStream();
+        Thread t = new Thread(new Runnable() {
+            @Override public void run() {
+                try {
+                    byte[] buf = new byte[4096];
+                    while (err.read(buf) > 0) { /* discard */ }
+                } catch (IOException ignored) {}
+            }
+        }, name);
+        t.setDaemon(true);
+        t.start();
+        return t;
     }
 
     /**

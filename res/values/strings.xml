@@ -32,7 +32,7 @@
 
     <!-- Pre-swap warning -->
     <string name="preswap_title">About to swap bands</string>
-    <string name="preswap_msg">This will:\n\n1. Back up your current %1$s bands.\n2. Unlock the eMMC\'s power-on write-protect.\n3. Flash %2$s bands directly to the modem partitions.\n4. Reboot the device immediately (sysrq).\n\nClose any other apps with unsaved work first — the reboot is a hard reset and skips the normal shutdown. The swap itself takes ~10 seconds, then the device reboots.</string>
+    <string name="preswap_msg">This will:\n\n1. Back up your current %1$s bands (~1–2 minutes — a 100 MB partition is compressed in pure Java on the phone).\n2. Unlock the eMMC\'s power-on write-protect.\n3. Flash %2$s bands directly to the modem partitions.\n4. Reboot the device immediately (sysrq).\n\nClose any other apps with unsaved work first — the reboot is a forced shutdown and skips the normal shutdown.\n\nAfter the reboot you must re-provision IMEI / Bluetooth MAC / WiFi MAC using the mtk-imei-switcheroo-app (link in Info), otherwise the new modem will boot with whatever placeholder values are in the flashed nvram.</string>
     <string name="btn_swap_confirm">I understand — swap</string>
     <string name="btn_cancel">Cancel</string>
 
@@ -40,6 +40,8 @@
     <string name="swap_progress_title">Swapping bands…</string>
     <string name="step_backup">Backing up current bands…</string>
     <string name="step_backup_part">Backing up %1$s (%2$d/%3$d)…</string>
+    <string name="step_backup_part_progress">Backing up %1$s (%2$d/%3$d): %4$d / %5$d MB</string>
+    <string name="step_backup_sync">Flushing backup to disk…</string>
     <string name="step_unlock">Unlocking eMMC write-protect…</string>
     <string name="step_flash">Flashing %1$s bands…</string>
     <string name="step_flash_part">Flashing %1$s (%2$d/%3$d)…</string>
