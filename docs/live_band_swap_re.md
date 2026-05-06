@@ -87,35 +87,35 @@ Reading per-device fields from each blob with `mtk-imei-switcheroo`'s tools:
 
 ```
 $ python3 imei_tool.py read us/nvdata.bin
-IMEI 1: 990006165572206
+IMEI 1: [REDACTED]
 IMEI 2: (empty)
 $ python3 imei_tool.py read stock/nvdata.bin
-IMEI 1: 867603053121169
+IMEI 1: [REDACTED]
 IMEI 2: (empty)
 
 $ python3 mac_tool.py read us/nvdata.bin
-BT_Addr (7 copies, first @ 0x817000): 10:df:8b:ab:5a:52
-WIFI MAC (7 copies, first @ 0x816000): 10:df:8b:23:9d:44
+BT_Addr (7 copies, first @ 0x817000): [REDACTED]
+WIFI MAC (7 copies, first @ 0x816000): [REDACTED]
 $ python3 mac_tool.py read stock/nvdata.bin
-BT_Addr (2 copies, first @ 0x806006): 10:df:8b:ab:a2:d9
-WIFI MAC (2 copies, first @ 0x8061be): 10:df:8b:23:e5:cb
+BT_Addr (2 copies, first @ 0x806006): [REDACTED]
+WIFI MAC (2 copies, first @ 0x8061be): [REDACTED]
 
 $ python3 mac_tool.py read us/nvram.bin
-BT_Addr (1 copies, first @ 0x2003c): 10:df:8b:ab:5a:52
-WIFI MAC (1 copies, first @ 0x201f4): 10:df:8b:23:9d:44
+BT_Addr (1 copies, first @ 0x2003c): [REDACTED]
+WIFI MAC (1 copies, first @ 0x201f4): [REDACTED]
 $ python3 mac_tool.py read stock/nvram.bin
-BT_Addr (1 copies, first @ 0x20006): 10:df:8b:ab:a2:d9
-WIFI MAC (1 copies, first @ 0x201be): 10:df:8b:23:e5:cb
+BT_Addr (1 copies, first @ 0x20006): [REDACTED]
+WIFI MAC (1 copies, first @ 0x201be): [REDACTED]
 ```
 
 Different IMEIs. Different BT MACs. Different WiFi MACs. The `nvram.bin`
 BinRegion mirrors agree with their sibling `nvdata.bin`. Two distinct source
 devices.
 
-The US blob's `IMEI 1 = 990006165572206` is in the **99-prefix test/reserved
+The US blob's `IMEI 1 = [REDACTED]` is in the **99-prefix test/reserved
 TAC range** -- a placeholder, not a real provisioned IMEI. Consistent with a
 fresh F30 firmware extract or a dump taken before the device was IMEI-provisioned.
-The stock blob's IMEI is real-format (`867603053121169`, TAC `86760305`).
+The stock blob's IMEI is real-format (`[REDACTED]`, TAC `[REDACTED]`).
 
 Per the app's design, the user reprovisions IMEI after a swap (via tools like
 `mtk-imei-switcheroo`'s `live_patch.sh`). The IMEI clobber per se is not the
@@ -290,7 +290,7 @@ the raw block device.
 
 Setup: F21 Pro (single-SIM, MT6761, Android 11 + Magisk), connected via ADB,
 root granted to `shell` via Magisk. Device currently on US bands (md1img_a hash
-matches `Constants.US_MD1IMG_SHA256`). Current IMEI `990006165572206` (US blob
+matches `Constants.US_MD1IMG_SHA256`). Current IMEI `[REDACTED]` (US blob
 test placeholder).
 
 Partition layout, from `/sys/class/block/mmcblk0p*/start`:
@@ -500,7 +500,7 @@ Result: Parcel(
  0x00000020: 00300032 00000036 '2.0.6... ')
 ```
 
-Decoded IMEI: `990006165572206` -- back to the US test placeholder. Device
+Decoded IMEI: `[REDACTED]` -- back to the US test placeholder. Device
 restored. **`fastboot flash` from the bootloader-mode partition write path
 succeeded for all four partitions** -- including the two (`md1img_a`, `nvram`)
 that silently no-op'd from running Android.

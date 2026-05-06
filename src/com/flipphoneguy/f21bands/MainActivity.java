@@ -34,8 +34,6 @@ public final class MainActivity extends Activity {
     private String otherRegion;
     private boolean blobReady;
 
-    private boolean rebootPromptOpen;
-
     @Override
     protected void onCreate(Bundle saved) {
         super.onCreate(saved);
@@ -106,6 +104,7 @@ public final class MainActivity extends Activity {
                     detected = Constants.REGION_UNKNOWN;
                 }
                 final String region = detected;
+                cleanupStaleBlob(region);
                 final String other = RegionDetector.otherRegion(region);
                 final boolean haveBlob;
                 if (other != null) {
@@ -125,6 +124,20 @@ public final class MainActivity extends Activity {
                 });
             }
         }).start();
+    }
+
+    /**
+     * After a successful sysrq-b reboot, the blob we just flashed is still
+     * sitting on disk under bands_&lt;currentRegion&gt;.tar.xz. Drop it so the
+     * "exactly one blob, for the region you're not on" invariant holds.
+     */
+    private void cleanupStaleBlob(String region) {
+        if (region == null || Constants.REGION_UNKNOWN.equals(region)) return;
+        File stale = BlobLoader.blobFile(MainActivity.this, region);
+        if (stale.isFile()) {
+            //noinspection ResultOfMethodCallIgnored
+            stale.delete();
+        }
     }
 
     private void renderLoading() {
@@ -334,9 +347,17 @@ public final class MainActivity extends Activity {
                     });
                     runOnUiThread(new Runnable() {
                         @Override public void run() {
+                            // sysrq-b inside the swap script reboots the device
+                            // before we get here. If we *do* get here, the script
+                            // exited cleanly without firing sysrq (unexpected) —
+                            // tell the user to power-cycle manually.
                             pd.dismiss();
+                            new AlertDialog.Builder(MainActivity.this)
+                                .setTitle(R.string.swap_done_title)
+                                .setMessage(R.string.swap_done_msg)
+                                .setPositiveButton(android.R.string.ok, null)
+                                .show();
                             refreshState();
-                            promptReboot();
                         }
                     });
                 } catch (final Exception e) {
@@ -356,25 +377,4 @@ public final class MainActivity extends Activity {
         }).start();
     }
 
-    // ─── Reboot ───────────────────────────────────────────────────────────
-
-    private void promptReboot() {
-        if (rebootPromptOpen) return;
-        rebootPromptOpen = true;
-        new AlertDialog.Builder(this)
-            .setTitle(R.string.reboot_title)
-            .setMessage(R.string.reboot_msg)
-            .setOnDismissListener(new DialogInterface.OnDismissListener() {
-                @Override public void onDismiss(DialogInterface d) { rebootPromptOpen = false; }
-            })
-            .setPositiveButton(R.string.btn_reboot, new DialogInterface.OnClickListener() {
-                @Override public void onClick(DialogInterface d, int w) {
-                    new Thread(new Runnable() {
-                        @Override public void run() { RootRunner.reboot(); }
-                    }).start();
-                }
-            })
-            .setNegativeButton(R.string.btn_later, null)
-            .show();
-    }
 }

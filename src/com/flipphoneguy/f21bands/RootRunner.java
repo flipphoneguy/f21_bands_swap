@@ -8,11 +8,17 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 /**
- * Thin wrapper around `su -c "..."`. All partition I/O is streamed: dumps
- * pipe `dd` stdout into a Java OutputStream; flashes pipe a Java InputStream
- * into `dd` stdin. We never stage raw partition images on disk, which
- * sidesteps both the SELinux app/shell label mismatch in /data/local/tmp and
- * the 270-ish MB of temp space that staging would otherwise need.
+ * Thin wrapper around `su -c "..."` (and `su -mm -c "..."` for the live-flash
+ * path that needs the mount-master SELinux domain to open /dev/block/mmcblk0
+ * for the MMC ioctls used by mmc_probe).
+ *
+ * Reads (dumps) are streamed: `dd if=<part>` stdout goes straight into a Java
+ * OutputStream. Writes (flashes) go through the mount-master orchestration
+ * shell launched by {@link #execMountMasterShell(String)} — that shell
+ * unlocks the eMMC's power-on write-protect, then dd's all four partition
+ * payloads from its own stdin to mmcblk0+seek, then sysrq-b reboots the
+ * device. Java just writes the four partition images to the shell's stdin
+ * in canonical order.
  */
 public final class RootRunner {
 
@@ -86,32 +92,19 @@ public final class RootRunner {
         if (exit != 0) throw new IOException("dd dump exited " + exit);
     }
 
-    /** Streams exactly `bytes` bytes from `in` into `dd of=device` via stdin. */
-    public static void streamFlashFromIn(InputStream in, long bytes, String device)
-            throws IOException, InterruptedException {
-        Process p = Runtime.getRuntime().exec(new String[]{"su", "-c",
-            "dd of=" + device + " bs=4M 2>/dev/null"});
-        long remaining = bytes;
-        IOException pipeErr = null;
-        try (OutputStream stdin = p.getOutputStream()) {
-            byte[] buf = new byte[1024 * 1024];
-            int n;
-            while (remaining > 0 && (n = in.read(buf, 0, (int) Math.min(buf.length, remaining))) > 0) {
-                stdin.write(buf, 0, n);
-                remaining -= n;
-            }
-        } catch (IOException e) {
-            pipeErr = e;
-        }
-        String stderr = drain(p.getErrorStream());
-        int exit = p.waitFor();
-        if (pipeErr != null) throw pipeErr;
-        if (exit != 0) throw new IOException("dd flash exited " + exit + ": " + stderr);
-        if (remaining != 0) throw new IOException("dd flash short input: " + remaining + " left");
-    }
-
-    public static void reboot() {
-        try { run("reboot"); } catch (Exception ignored) {}
+    /**
+     * Launches `su -mm -c "sh -c <cmd>"`. The mount-master flag is required
+     * so the spawned shell lands in an SELinux context that can open
+     * /dev/block/mmcblk0 for MMC ioctls. Plain `su` lands in magisk:s0 and
+     * gets EACCES at open(). Caller owns the returned Process: write the
+     * partition payloads to its stdin (the orchestration script issues
+     * `dd of=mmcblk0` calls in canonical partition order, each consuming
+     * exactly its partition's bytes from stdin), then close stdin. The
+     * shell's last line is `sysrq-b`, so the device reboots before the
+     * Process formally exits.
+     */
+    public static Process execMountMasterShell(String cmd) throws IOException {
+        return Runtime.getRuntime().exec(new String[]{"su", "-mm", "-c", cmd});
     }
 
     private static String drain(InputStream in) throws IOException {

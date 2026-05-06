@@ -48,7 +48,7 @@ PC, no per-power-cycle limit.
 > [`tools/swap.sh`](../tools/swap.sh)): every swap completed end-to-end,
 > `md1img_a` and `nvram` post-reboot hashes matched the target blob
 > exactly, modem booted, IMEI parcel reflected the target blob's IMEI
-> (`867603053121169` for stock, `990006165572206` for US's test
+> (`[REDACTED]` for stock, `[REDACTED]` for US's test
 > placeholder).
 
 ## What the original investigation got wrong
@@ -181,10 +181,10 @@ fastboot:
 
 | Round | Direction | md1img_a hash post-reboot | IMEI post-reboot |
 |---:|---|---|---|
-| 1 | stock -> US     | `784c350304...05077b8` (US matches blob) | `990006165572206` (US blob) |
-| 2 | US -> stock     | `68ec5dcb9f...d5d9b2ae` (stock matches blob) | `867603053121169` (stock blob) |
-| 3 | stock -> US     | `784c350304...05077b8` (US matches blob) | `990006165572206` (US blob) |
-| 4 | US -> stock     | `68ec5dcb9f...d5d9b2ae` (stock matches blob) | `867603053121169` (stock blob) |
+| 1 | stock -> US     | `784c350304...05077b8` (US matches blob) | `[REDACTED]` (US blob) |
+| 2 | US -> stock     | `68ec5dcb9f...d5d9b2ae` (stock matches blob) | `[REDACTED]` (stock blob) |
+| 3 | stock -> US     | `784c350304...05077b8` (US matches blob) | `[REDACTED]` (US blob) |
+| 4 | US -> stock     | `68ec5dcb9f...d5d9b2ae` (stock matches blob) | `[REDACTED]` (stock blob) |
 
 Every round completed end-to-end with the same script, the same `dd`
 seek offsets, and the same `sysrq-b` reboot. The `reinit` step in `[1]`

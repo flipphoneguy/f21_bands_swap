@@ -76,6 +76,8 @@ aapt2 compile --dir res/ -o "$BUILD_DIR/resources.zip"
 
 # ── 2. Link resources ──────────────────────────────────────────────────────
 echo "[2/5] Linking resources..."
+LINK_ASSETS=()
+[ -d assets ] && LINK_ASSETS=(-A assets)
 aapt2 link \
     -o "$BUILD_DIR/app_res.apk" \
     --manifest AndroidManifest.xml \
@@ -85,6 +87,7 @@ aapt2 link \
     --target-sdk-version 35 \
     --version-code "$VERSION_CODE" \
     --version-name "$VERSION_NAME" \
+    "${LINK_ASSETS[@]}" \
     "$BUILD_DIR/resources.zip"
 
 # ── 3. Compile Java ────────────────────────────────────────────────────────
