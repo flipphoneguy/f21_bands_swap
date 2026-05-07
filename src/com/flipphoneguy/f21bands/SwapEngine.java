@@ -55,10 +55,30 @@ public final class SwapEngine {
 
     public static void swap(Context ctx, String currentRegion, String targetRegion,
                             ProgressListener listener) throws IOException, InterruptedException {
+        swap(ctx, currentRegion, targetRegion, false, listener);
+    }
+
+    public static void swap(Context ctx, String currentRegion, String targetRegion,
+                            boolean skipBackup, ProgressListener listener)
+            throws IOException, InterruptedException {
 
         File loadedBlob = BlobLoader.blobFile(ctx, targetRegion);
         if (!loadedBlob.isFile()) {
             throw new IOException("Loaded blob missing: " + loadedBlob.getName());
+        }
+
+        if (skipBackup) {
+            // Drop any old backup file for the current region: it's stale
+            // (likely from a previous round-trip swap) and we're explicitly
+            // not generating a new one. Leaving it would mislead the user
+            // into thinking they have a backup of their current bands.
+            File staleBackup = BlobLoader.blobFile(ctx, currentRegion);
+            if (staleBackup.exists()) {
+                //noinspection ResultOfMethodCallIgnored
+                staleBackup.delete();
+            }
+            doFlash(ctx, loadedBlob, listener);
+            return;
         }
 
         File backupBlob = BlobLoader.blobFile(ctx, currentRegion);
@@ -164,6 +184,15 @@ public final class SwapEngine {
         }
 
         // ── 2. Live flash via mmc_probe + sysrq-b reboot.
+        doFlash(ctx, loadedBlob, listener);
+    }
+
+    /** Phase 2: eMMC unlock + dd + sysrq-b reboot. Shared by backup and no-backup paths. */
+    private static void doFlash(Context ctx, File loadedBlob, ProgressListener listener)
+            throws IOException, InterruptedException {
+
+        int total = Constants.PARTITION_FILES.length;
+
         File probe = stageMmcProbe(ctx);
         File script = writeLiveSwapScript(ctx, probe);
 

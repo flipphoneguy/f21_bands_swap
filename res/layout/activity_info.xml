@@ -64,6 +64,32 @@
                     android:textSize="13sp" />
             </LinearLayout>
 
+            <!-- What the buttons do -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/card_bg"
+                android:padding="14dp"
+                android:layout_marginBottom="14dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/info_buttons_title"
+                    android:textColor="@color/primary"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="6dp" />
+
+                <TextView
+                    android:id="@+id/info_buttons_body"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
             <!-- Recovery -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -90,6 +116,50 @@
                     android:textSize="12sp"
                     android:fontFamily="monospace"
                     android:textIsSelectable="true" />
+            </LinearLayout>
+
+            <!-- IMEI switcher one-tap install -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/card_bg"
+                android:padding="14dp"
+                android:layout_marginBottom="14dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/info_install_imei_title"
+                    android:textColor="@color/primary"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="6dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/info_install_imei_body"
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp"
+                    android:layout_marginBottom="10dp" />
+
+                <Button
+                    android:id="@+id/btn_install_imei"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:text="@string/btn_install_imei"
+                    style="@style/BtnPrimary" />
+
+                <TextView
+                    android:id="@+id/install_imei_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:padding="4dp"
+                    android:layout_marginTop="6dp"
+                    android:visibility="gone" />
             </LinearLayout>
 
             <!-- Manual URLs -->

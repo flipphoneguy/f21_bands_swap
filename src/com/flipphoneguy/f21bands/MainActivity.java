@@ -27,7 +27,7 @@ public final class MainActivity extends Activity {
     private LinearLayout cardGate, cardAction, cardError;
     private TextView gateExplain, dlStatus, manualUrl, errorMsg;
     private ProgressBar dlProgress;
-    private Button btnDownload, btnPick, btnCopyUrl, btnSwap;
+    private Button btnDownload, btnPick, btnCopyUrl, btnSwap, btnSwapNoBackup;
 
     private boolean rooted;
     private String currentRegion = Constants.REGION_UNKNOWN;
@@ -53,10 +53,11 @@ public final class MainActivity extends Activity {
         errorMsg    = findViewById(R.id.error_msg);
         dlProgress  = findViewById(R.id.dl_progress);
 
-        btnDownload = findViewById(R.id.btn_download);
-        btnPick     = findViewById(R.id.btn_pick);
-        btnCopyUrl  = findViewById(R.id.btn_copy_url);
-        btnSwap     = findViewById(R.id.btn_swap);
+        btnDownload     = findViewById(R.id.btn_download);
+        btnPick         = findViewById(R.id.btn_pick);
+        btnCopyUrl      = findViewById(R.id.btn_copy_url);
+        btnSwap         = findViewById(R.id.btn_swap);
+        btnSwapNoBackup = findViewById(R.id.btn_swap_nobackup);
 
         findViewById(R.id.btn_info).setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
@@ -79,6 +80,9 @@ public final class MainActivity extends Activity {
         });
         btnSwap.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { confirmSwap(); }
+        });
+        btnSwapNoBackup.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { confirmSwapNoBackup(); }
         });
 
         refreshState();
@@ -191,6 +195,7 @@ public final class MainActivity extends Activity {
         } else {
             // Action screen.
             btnSwap.setText(getString(R.string.btn_swap, Constants.prettyRegion(otherRegion)));
+            btnSwapNoBackup.setText(getString(R.string.btn_swap_nobackup, Constants.prettyRegion(otherRegion)));
             cardAction.setVisibility(View.VISIBLE);
         }
     }
@@ -314,20 +319,38 @@ public final class MainActivity extends Activity {
             .setTitle(R.string.preswap_title)
             .setMessage(getString(R.string.preswap_msg, from, to))
             .setPositiveButton(R.string.btn_swap_confirm, new DialogInterface.OnClickListener() {
-                @Override public void onClick(DialogInterface d, int w) { performSwap(); }
+                @Override public void onClick(DialogInterface d, int w) { performSwap(false); }
             })
             .setNegativeButton(R.string.btn_cancel, null)
             .show();
     }
 
-    private void performSwap() {
+    private void confirmSwapNoBackup() {
+        if (otherRegion == null) return;
+        final String from = Constants.prettyRegion(currentRegion);
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_nobackup_warning, null);
+        TextView warn   = view.findViewById(R.id.nobackup_warn);
+        TextView detail = view.findViewById(R.id.nobackup_detail);
+        warn.setText(getString(R.string.preswap_nobackup_warn, from));
+        detail.setText(R.string.preswap_nobackup_detail);
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.preswap_nobackup_title)
+            .setView(view)
+            .setPositiveButton(R.string.btn_swap_nobackup_confirm, new DialogInterface.OnClickListener() {
+                @Override public void onClick(DialogInterface d, int w) { performSwap(true); }
+            })
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show();
+    }
+
+    private void performSwap(final boolean skipBackup) {
         final String from = currentRegion;
         final String to   = otherRegion;
         if (to == null) return;
 
         View view = LayoutInflater.from(this).inflate(R.layout.dialog_swap_progress, null);
         final TextView statusText = view.findViewById(R.id.swap_status);
-        statusText.setText(R.string.step_backup);
+        statusText.setText(skipBackup ? R.string.step_unlock : R.string.step_backup);
         final AlertDialog pd = new AlertDialog.Builder(this)
             .setTitle(R.string.swap_progress_title)
             .setView(view)
@@ -338,7 +361,7 @@ public final class MainActivity extends Activity {
         new Thread(new Runnable() {
             @Override public void run() {
                 try {
-                    SwapEngine.swap(MainActivity.this, from, to, new SwapEngine.ProgressListener() {
+                    SwapEngine.swap(MainActivity.this, from, to, skipBackup, new SwapEngine.ProgressListener() {
                         @Override public void step(final String message) {
                             runOnUiThread(new Runnable() {
                                 @Override public void run() { statusText.setText(message); }

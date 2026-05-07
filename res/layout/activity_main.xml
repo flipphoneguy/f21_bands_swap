@@ -195,7 +195,16 @@
                     android:layout_height="56dp"
                     style="@style/BtnPrimary"
                     android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:textStyle="bold"
+                    android:layout_marginBottom="10dp" />
+
+                <Button
+                    android:id="@+id/btn_swap_nobackup"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    style="@style/BtnOutline"
+                    android:textColor="@color/warn"
+                    android:textSize="13sp" />
             </LinearLayout>
 
             <!-- ─── Error card ─── -->

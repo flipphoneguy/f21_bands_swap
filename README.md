@@ -30,7 +30,7 @@ adb install -r F21BandsSwap.apk
 Open the app, accept the root prompt, follow the on-screen flow:
 
 1. Tap **Download** to fetch the target region's blob (~20 MB) into app private storage. Or tap **Pick file** if you already have it.
-2. Tap **Swap to <target>**. Confirm the warning.
+2. Tap **Swap to <target>**. Confirm the warning. (There's also a **Flash <target> — NO BACKUP** button that skips the backup step and goes straight to unlock + flash + reboot — faster, but leaves no way back without re-downloading the previous region's blob. See the in-app Info screen.)
 3. The app backs up your current bands, runs the eMMC unlock dance, flashes the new bands, and sysrq-reboots. Total wall-clock is dominated by the backup compression step: roughly 1–2 minutes on MT6761, mostly spent compressing the 100 MB modem partition through the pure-Java LZMA encoder at PRESET_MIN. The eMMC unlock + dd flash itself is under 10 seconds.
 4. After the reboot, re-provision IMEI / BT MAC / WiFi MAC using [mtk-imei-switcheroo-app](https://github.com/flipphoneguy/mtk-imei-switcheroo-app) — the freshly-flashed nvram contains placeholder values, not your phone's identifiers.
 
