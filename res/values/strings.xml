@@ -76,15 +76,27 @@
     <string name="info_legal_title">Legal</string>
     <string name="info_legal_body">Modifying an IMEI is illegal in some jurisdictions. You are responsible for checking your local laws.</string>
 
+    <!-- One-tap APK install (shared progress strings for both flows) -->
+    <string name="apk_install_progress_finding">Finding latest release…</string>
+    <string name="apk_install_progress_downloading">Downloading APK…</string>
+    <string name="apk_install_progress_installing">Installing via pm install…</string>
+
     <!-- IMEI switcher one-tap install -->
     <string name="info_install_imei_title">Install IMEI switcher app</string>
     <string name="info_install_imei_body">After flashing, your IMEI / BT MAC / WiFi MAC are placeholder values from the flashed nvram. The mtk-imei-switcheroo-app re-provisions them. This downloads the latest release APK to /data/local/tmp, installs it via pm install, and removes the staged file.</string>
     <string name="btn_install_imei">Download &amp; install latest</string>
-    <string name="imei_install_progress_finding">Finding latest release…</string>
-    <string name="imei_install_progress_downloading">Downloading APK…</string>
-    <string name="imei_install_progress_installing">Installing via pm install…</string>
     <string name="imei_install_done">IMEI switcher installed.</string>
     <string name="imei_install_failed">Install failed: %1$s</string>
+
+    <!-- Self-update -->
+    <string name="info_update_app_title">Update F21 Bands</string>
+    <string name="info_update_app_body">Checks GitHub for a newer release. If one exists, downloads the APK to /data/local/tmp, installs over the current version via pm install -r, and removes the staged file. If you\'re already on the latest, it skips the download.</string>
+    <string name="btn_update_app">Check for update &amp; install</string>
+    <string name="update_app_checking">Checking for updates…</string>
+    <string name="update_app_uptodate">Already on the latest version (%1$s).</string>
+    <string name="update_app_newer_found">New version %1$s available (you have %2$s) — downloading…</string>
+    <string name="update_app_done">F21 Bands updated.</string>
+    <string name="update_app_failed">Update failed: %1$s</string>
 
     <!-- Credits / links -->
     <string name="info_credits_title">Credits</string>
