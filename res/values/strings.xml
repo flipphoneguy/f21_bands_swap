@@ -33,7 +33,7 @@
 
     <!-- Pre-swap warning -->
     <string name="preswap_title">About to swap bands</string>
-    <string name="preswap_msg">This will:\n\n1. Back up your current %1$s bands (~1–2 minutes — a 100 MB partition is compressed in pure Java on the phone).\n2. Unlock the eMMC\'s power-on write-protect.\n3. Flash %2$s bands directly to the modem partitions.\n4. Reboot the device immediately (sysrq).\n\nClose any other apps with unsaved work first — the reboot is a forced shutdown and skips the normal shutdown.\n\nAfter the reboot you must re-provision IMEI / Bluetooth MAC / WiFi MAC using the mtk-imei-switcheroo-app (link in Info), otherwise the new modem will boot with whatever placeholder values are in the flashed nvram.</string>
+    <string name="preswap_msg">This will:\n\n1. Back up your current %1$s bands (~1–2 minutes).\n2. Flash %2$s bands directly to the modem partitions.\n4. Reboot the device immediately (sysrq).\n\nClose any other apps with unsaved work first — the reboot is a forced shutdown and skips the normal shutdown.\n\nAfter the reboot you must re-provision IMEI / Bluetooth MAC / WiFi MAC using the mtk-imei-switcheroo-app (link in Info), otherwise the new modem will boot with whatever placeholder values are in the flashed nvram.</string>
     <string name="btn_swap_confirm">I understand — swap</string>
     <string name="btn_cancel">Cancel</string>
 
@@ -69,9 +69,7 @@
     <string name="info_compat_title">Compatibility</string>
     <string name="info_compat_body">EXCLUSIVELY for rooted DuoQin F21 prior to v3.\n\nv3 has a RED charging port and serial number prefix F21PMQC25 — running this app on v3 will SOFT-BRICK THE MODEM.\n\nIf you\'re not sure, don\'t use this app.</string>
     <string name="info_buttons_title">What the buttons do</string>
-    <string name="info_buttons_body"><![CDATA[<b>Swap to &lt;target&gt; bands</b> — the safe path. Backs up your current bands to app private storage (~1–2 min, mostly LZMA compression), unlocks the eMMC, flashes the new bands, sysrq-reboots. The backup lets you swap back later without re-downloading.<br/><br/><b>Flash &lt;target&gt; — NO BACKUP</b> — the destructive path. Skips the backup step entirely and goes straight to unlock + flash + reboot. Saves a minute or two but leaves no way back: if you want to return to the bands you had before, you have to re-download that blob.<br/><br/>Both paths overwrite IMEI, BT MAC, and WiFi MAC with placeholder values — re-provision with the IMEI switcher app afterwards either way.]]></string>
-    <string name="info_recovery_title">If a swap fails mid-flash</string>
-    <string name="info_recovery_body">Your previous bands were backed up before flashing. The backup blob lives at:\n\n/data/data/com.flipphoneguy.f21bands/files/bands_&lt;region&gt;.tar.xz\n\nBoot into recovery (or use any rooted shell), pull the blob, decompress with `tar -xJf`, and `dd` each .bin file to its partition (md1img_a, nvcfg, nvdata, nvram). The app will retry the same steps on next launch — open it again first before doing anything manual.</string>
+    <string name="info_buttons_body"><![CDATA[<b>Swap to &lt;target&gt; bands</b> — the safe path. Backs up your current bands to app private storage (~1–2 min), flashes the new bands, sysrq-reboots. The backup lets you swap back later without re-downloading. The backup also still has your old IMEI, bt and wifi mac addresses for the next time you swap.<br/><br/><b>Flash &lt;target&gt; — NO BACKUP</b> — the destructive path. Skips the backup step entirely and goes straight to unlock + flash + reboot. Saves a minute or two. If you want to return to the bands you had before, you have to re-download that blob.<br/><br/>Both paths - if this is the first flash (flashing from download) overwrite IMEI, BT MAC, and WiFi MAC with placeholder values — re-provision with the IMEI switcher app afterwards either way.]]></string>
     <string name="info_url_title">Manual download URLs</string>
     <string name="info_legal_title">Legal</string>
     <string name="info_legal_body">Modifying an IMEI is illegal in some jurisdictions. You are responsible for checking your local laws.</string>
@@ -83,14 +81,14 @@
 
     <!-- IMEI switcher one-tap install -->
     <string name="info_install_imei_title">Install IMEI switcher app</string>
-    <string name="info_install_imei_body">After flashing, your IMEI / BT MAC / WiFi MAC are placeholder values from the flashed nvram. The mtk-imei-switcheroo-app re-provisions them. This downloads the latest release APK to /data/local/tmp, installs it via pm install, and removes the staged file.</string>
+    <string name="info_install_imei_body">After flashing the first time, your IMEI / BT MAC / WiFi MAC are placeholder values from the downloaded nvram. The mtk-imei-switcheroo-app re-provisions them. This downloads and installs the latest version of the app.</string>
     <string name="btn_install_imei">Download &amp; install latest</string>
     <string name="imei_install_done">IMEI switcher installed.</string>
     <string name="imei_install_failed">Install failed: %1$s</string>
 
     <!-- Self-update -->
     <string name="info_update_app_title">Update F21 Bands</string>
-    <string name="info_update_app_body">Checks GitHub for a newer release. If one exists, downloads the APK to /data/local/tmp, installs over the current version via pm install -r, and removes the staged file. If you\'re already on the latest, it skips the download.</string>
+    <string name="info_update_app_body">Checks GitHub for a newer release and installs if one exists.</string>
     <string name="btn_update_app">Check for update &amp; install</string>
     <string name="update_app_checking">Checking for updates…</string>
     <string name="update_app_uptodate">Already on the latest version (%1$s).</string>
@@ -108,7 +106,6 @@
     <string name="info_imei_app_label">mtk-imei-switcheroo-app</string>
     <string name="info_imei_app_url">https://github.com/flipphoneguy/mtk-imei-switcheroo-app</string>
     <string name="info_imei_app_release_label">mtk-imei-switcheroo-app — latest release</string>
-    <string name="info_imei_app_release_url">https://github.com/flipphoneguy/mtk-imei-switcheroo-app/releases/latest</string>
     <string name="info_github_label">GitHub Profile</string>
     <string name="info_github_url">https://github.com/flipphoneguy</string>
     <string name="info_repo_label">App Repository</string>

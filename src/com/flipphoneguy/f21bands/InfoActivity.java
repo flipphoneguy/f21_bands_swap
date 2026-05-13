@@ -56,7 +56,6 @@ public final class InfoActivity extends Activity {
 
         bindLink(R.id.btn_alltech,           R.string.info_alltech_url);
         bindLink(R.id.btn_imei_app,          R.string.info_imei_app_url);
-        bindLink(R.id.btn_imei_app_release,  R.string.info_imei_app_release_url);
         bindLink(R.id.btn_github,            R.string.info_github_url);
         bindLink(R.id.btn_repo,              R.string.info_repo_url);
     }

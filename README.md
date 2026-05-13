@@ -4,12 +4,12 @@ One-tap on-device band swap (US ↔ stock) for the rooted DuoQin F21 Pro (pre-v3
 
 ## Compatibility
 
-**EXCLUSIVELY for rooted DuoQin F21 prior to v3.** v3 has a red charging port and serial number prefix `F21PMQC25`; running this on v3 will brick the modem. Magisk is required (the app needs root and `su -mm` for the MMC ioctls). If you're not sure which revision you have, do not use this app.
+**EXCLUSIVELY for rooted DuoQin F21 prior to v3.** v3 has a red charging port and serial number prefix `F21PMQC25`; running this on v3 will brick the modem (the app will refuse to flash if it detects incompatibility). Magisk is required (the app needs root and `su -mm` for the MMC ioctls). If you're not sure which revision you have, do not use this app.
 
 ## What it does
 
 - Detects whether the device is currently on US or stock bands by hashing `md1img_a`.
-- Streams a backup of the four live partitions (`md1img_a`, `nvcfg`, `nvdata`, `nvram`) into an xz/tar blob in app private storage. No raw partition data lands on disk uncompressed.
+- Streams a backup of the four live partitions (`md1img_a`, `nvcfg`, `nvdata`, `nvram`) into an xz/tar blob in app private storage (20 mb). No raw partition data lands on disk uncompressed.
 - Unlocks the eMMC's power-on write-protect via `mmc_probe` (bundled arm64 helper, sources in [`tools/mmc_probe.c`](tools/mmc_probe.c)).
 - `dd`s the four target partitions to `/dev/block/mmcblk0` at the canonical sector offsets, with the loaded blob streamed straight into the orchestration shell's stdin (no /sdcard staging, no 260 MiB of temp expansion).
 - `sysrq-b` reboots the device immediately after the writes, skipping the normal shutdown sync so the mounted ext4 driver doesn't clobber `nvcfg`/`nvdata` with its stale pagecache.
@@ -21,26 +21,21 @@ The on-device live-flash flow this app ships was reverse-engineered, validated e
 
 ## Install
 
-Download the [latest release](https://github.com/flipphoneguy/f21_bands_swap/releases/latest) from the [releases](https://github.com/flipphoneguy/f21_bands_swap/releases) below.
-
-```sh
-adb install -r F21BandsSwap.apk
-```
+Download and install the [latest release](https://github.com/flipphoneguy/f21_bands_swap/releases/latest) from the [releases](https://github.com/flipphoneguy/f21_bands_swap/releases) below.
 
 Open the app, accept the root prompt, follow the on-screen flow:
 
 1. Tap **Download** to fetch the target region's blob (~20 MB) into app private storage. Or tap **Pick file** if you already have it.
 2. Tap **Swap to <target>**. Confirm the warning. (There's also a **Flash <target> — NO BACKUP** button that skips the backup step and goes straight to unlock + flash + reboot — faster, but leaves no way back without re-downloading the previous region's blob. See the in-app Info screen.)
 3. The app backs up your current bands, runs the eMMC unlock dance, flashes the new bands, and sysrq-reboots. Total wall-clock is dominated by the backup compression step: roughly 1–2 minutes on MT6761, mostly spent compressing the 100 MB modem partition through the pure-Java LZMA encoder at PRESET_MIN. The eMMC unlock + dd flash itself is under 10 seconds.
-4. After the reboot, re-provision IMEI / BT MAC / WiFi MAC using [mtk-imei-switcheroo-app](https://github.com/flipphoneguy/mtk-imei-switcheroo-app) — the freshly-flashed nvram contains placeholder values, not your phone's identifiers.
+4. After the reboot, re-provision IMEI / BT MAC / WiFi MAC using [mtk-imei-switcheroo-app](https://github.com/flipphoneguy/mtk-imei-switcheroo-app) — the freshly-flashed nvram contains placeholder values, not your phone's identifiers. This only needs to be done once. Future swaps will flash the backup which contains your phone's unique identifiers. (TIP: If you install and launce the IMEI switcheroo app before swapping, your identifiers will be saved in the app to easily re-use)
 
 ## Run from Termux (no APK, no host PC)
 
 If you'd rather skip the APK and run the swap from an on-device Termux shell, [`tools/termux_swap.sh`](tools/termux_swap.sh) is a one-shot wrapper that downloads the target region's blob, `mmc_probe`, and `tools/swap.sh`, stages them via `su`, and invokes the same flash procedure the app uses. From Termux:
 
 ```sh
-F21_BANDS_RAW=https://raw.githubusercontent.com/flipphoneguy/f21_bands_swap/main \
-  curl -fsSL "$F21_BANDS_RAW/tools/termux_swap.sh" | sh -s us
+curl -fsSL "https://raw.githubusercontent.com/flipphoneguy/f21_bands_swap/tools/termux_swap.sh" | bash -s us
 ```
 
 Fully written and tested by [alltechdev](https://github/flipphoneguy/alltechdev)
@@ -49,7 +44,7 @@ Substitute `stock` for `us` to flash the other direction. The script auto-instal
 
 ## Recovery
 
-The pre-flash backup blob lives at `/data/data/com.flipphoneguy.f21bands/files/bands_<region>.tar.xz`. If a flash fails or you want to revert manually, pull it, `tar -xJf`, and `dd` the four `.bin` files to their partitions from a recovery shell. The in-app "swap back" path runs the same flow with the previously-backed-up region as the new target.
+The pre-flash backup blob lives at `/data/data/com.flipphoneguy.f21bands/files/bands_<region>.tar.xz`. If a flash fails or you want to revert manually, pull it, `tar -xJf`, and manually flash the four `.bin` files to their partitions from a computer (fastboot or recovery shell). The in-app "swap back" path runs the same flow with the previously-backed-up region as the new target.
 
 ## How it actually works
 
@@ -73,6 +68,8 @@ The full reverse-engineering trail, including every wrong turn, is in:
 ```
 
 Requires `aapt2`, `ecj`, `d8`, `apksigner`, `zip` (e.g. `pkg install aapt2 ecj d8 apksigner zip` in Termux), an `android.jar`, a `framework-res.apk`, and a debug keystore — paths in `build.sh`.
+
+For more on build, check out my [app building template](https://github.com/flipphoneguy/app-template)
 
 ## Legal
 
