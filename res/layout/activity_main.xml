@@ -225,6 +225,16 @@
                     android:textColor="@color/warn"
                     android:textSize="13sp"
                     android:padding="4dp" />
+
+                <Button
+                    android:id="@+id/btn_override"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:text="@string/btn_override"
+                    style="@style/BtnOutline"
+                    android:textColor="@color/warn"
+                    android:layout_marginTop="10dp"
+                    android:visibility="gone" />
             </LinearLayout>
 
         </LinearLayout>
