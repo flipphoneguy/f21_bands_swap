@@ -8,6 +8,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
@@ -17,22 +18,34 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
-import java.io.IOException;
 
 public final class MainActivity extends Activity {
 
+    private static final String TAG = "F21Bands";
     private static final int REQ_PICK = 100;
 
     private TextView statusRoot, statusRegion, statusBlob;
     private LinearLayout cardGate, cardAction, cardError;
     private TextView gateExplain, dlStatus, manualUrl, errorMsg;
     private ProgressBar dlProgress;
-    private Button btnDownload, btnPick, btnCopyUrl, btnSwap, btnSwapNoBackup;
+    private Button btnDownload, btnPick, btnCopyUrl, btnSwap, btnSwapNoBackup, btnOverride;
 
     private boolean rooted;
     private String currentRegion = Constants.REGION_UNKNOWN;
     private String otherRegion;
     private boolean blobReady;
+    /** True while a download or import is writing and validating a blob. */
+    private boolean loadingBlob;
+    /** File picked before the region probe had reported; replayed once it has. */
+    private Uri pendingPickUri;
+    /**
+     * Region the user chose to flash after overriding the unknown-bands
+     * refusal. Session-only, so the warning comes back on every launch.
+     * Written on the UI thread, read by the probe thread.
+     */
+    private volatile String overrideTarget;
+    /** Why region detection threw, or null when it ran and simply matched nothing. */
+    private String detectError;
 
     @Override
     protected void onCreate(Bundle saved) {
@@ -58,6 +71,7 @@ public final class MainActivity extends Activity {
         btnCopyUrl      = findViewById(R.id.btn_copy_url);
         btnSwap         = findViewById(R.id.btn_swap);
         btnSwapNoBackup = findViewById(R.id.btn_swap_nobackup);
+        btnOverride     = findViewById(R.id.btn_override);
 
         findViewById(R.id.btn_info).setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
@@ -84,6 +98,9 @@ public final class MainActivity extends Activity {
         btnSwapNoBackup.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { confirmSwapNoBackup(); }
         });
+        btnOverride.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { confirmOverride(); }
+        });
 
         refreshState();
     }
@@ -97,19 +114,31 @@ public final class MainActivity extends Activity {
 
     /** Background-thread state probe → UI render. */
     private void refreshState() {
+        // A download/import is in flight. Probing now would hide its progress,
+        // and the loader re-probes itself when it finishes.
+        if (loadingBlob) return;
         renderLoading();
         new Thread(new Runnable() {
             @Override public void run() {
                 final boolean r = RootRunner.hasRoot();
                 String detected;
+                String detectErr = null;
                 try {
                     detected = r ? RegionDetector.detect() : Constants.REGION_UNKNOWN;
                 } catch (Exception e) {
+                    Log.e(TAG, "region detection failed", e);
                     detected = Constants.REGION_UNKNOWN;
+                    detectErr = describe(e);
                 }
                 final String region = detected;
+                final String err = detectErr;
                 cleanupStaleBlob(region);
-                final String other = RegionDetector.otherRegion(region);
+                String target = RegionDetector.otherRegion(region);
+                if (target == null && r && Constants.REGION_UNKNOWN.equals(region)) {
+                    // Live bands unrecognised, but the user picked a target via the override.
+                    target = overrideTarget;
+                }
+                final String other = target;
                 final boolean haveBlob;
                 if (other != null) {
                     File f = BlobLoader.blobFile(MainActivity.this, other);
@@ -119,11 +148,18 @@ public final class MainActivity extends Activity {
                 }
                 runOnUiThread(new Runnable() {
                     @Override public void run() {
+                        // A load started while this probe ran; it refreshes when done.
+                        if (loadingBlob) return;
                         rooted = r;
                         currentRegion = region;
                         otherRegion = other;
                         blobReady = haveBlob;
+                        detectError = err;
+                        if (!Constants.REGION_UNKNOWN.equals(region)) overrideTarget = null;
                         render();
+                        Uri pending = pendingPickUri;
+                        pendingPickUri = null;
+                        if (pending != null && other != null) handlePicked(pending);
                     }
                 });
             }
@@ -160,6 +196,9 @@ public final class MainActivity extends Activity {
             statusRegion.setText(R.string.status_region_us);
         } else if (Constants.REGION_STOCK.equals(currentRegion)) {
             statusRegion.setText(R.string.status_region_stock);
+        } else if (otherRegion != null) {
+            statusRegion.setText(getString(R.string.status_region_unknown_override,
+                Constants.prettyRegion(otherRegion)));
         } else {
             statusRegion.setText(R.string.status_region_unknown);
         }
@@ -176,11 +215,15 @@ public final class MainActivity extends Activity {
 
         if (!rooted) {
             errorMsg.setText(R.string.err_no_root);
+            btnOverride.setVisibility(View.GONE);
             cardError.setVisibility(View.VISIBLE);
             return;
         }
-        if (Constants.REGION_UNKNOWN.equals(currentRegion)) {
-            errorMsg.setText(R.string.err_unknown_region);
+        if (Constants.REGION_UNKNOWN.equals(currentRegion) && otherRegion == null) {
+            errorMsg.setText(detectError != null
+                ? getString(R.string.err_detect_failed, detectError)
+                : getString(R.string.err_unknown_region));
+            btnOverride.setVisibility(View.VISIBLE);
             cardError.setVisibility(View.VISIBLE);
             return;
         }
@@ -200,10 +243,53 @@ public final class MainActivity extends Activity {
         }
     }
 
+    // ─── Unknown-bands override ───────────────────────────────────────────
+
+    private void confirmOverride() {
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.override_title)
+            .setMessage(R.string.override_warn)
+            .setPositiveButton(R.string.btn_override_confirm, new DialogInterface.OnClickListener() {
+                @Override public void onClick(DialogInterface d, int w) { chooseOverrideTarget(); }
+            })
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show();
+    }
+
+    private void chooseOverrideTarget() {
+        final String[] regions = { Constants.REGION_US, Constants.REGION_STOCK };
+        String[] labels = new String[regions.length];
+        for (int i = 0; i < regions.length; i++) {
+            labels[i] = getString(R.string.override_item, Constants.prettyRegion(regions[i]));
+        }
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.override_pick_title)
+            .setItems(labels, new DialogInterface.OnClickListener() {
+                @Override public void onClick(DialogInterface d, int which) { applyOverride(regions[which]); }
+            })
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show();
+    }
+
+    /**
+     * Treats {@code target} as the region to flash while the live bands stay
+     * "unknown". Download/pick/swap then run exactly as they would for a
+     * recognised device; a with-backup swap saves the current bands as
+     * bands_unknown.tar.xz.
+     */
+    private void applyOverride(String target) {
+        overrideTarget = target;
+        otherRegion = target;
+        File f = BlobLoader.blobFile(this, target);
+        blobReady = f.isFile() && f.length() > 0;
+        render();
+    }
+
     // ─── Download ─────────────────────────────────────────────────────────
 
     private void startDownload() {
-        if (otherRegion == null) return;
+        if (otherRegion == null || loadingBlob) return;
+        loadingBlob = true;
         btnDownload.setEnabled(false);
         btnPick.setEnabled(false);
         dlProgress.setVisibility(View.VISIBLE);
@@ -216,7 +302,8 @@ public final class MainActivity extends Activity {
         new Thread(new Runnable() {
             @Override public void run() {
                 try {
-                    File f = BlobLoader.download(MainActivity.this, region, new BlobLoader.ProgressListener() {
+                    // download() validates the blob before giving it its final name.
+                    BlobLoader.download(MainActivity.this, region, new BlobLoader.ProgressListener() {
                         @Override public void onProgress(final long sofar, final long total) {
                             runOnUiThread(new Runnable() {
                                 @Override public void run() {
@@ -231,24 +318,22 @@ public final class MainActivity extends Activity {
                             });
                         }
                     });
-                    if (!BlobLoader.validate(f)) {
-                        //noinspection ResultOfMethodCallIgnored
-                        f.delete();
-                        throw new IOException("Downloaded blob is invalid");
-                    }
                     runOnUiThread(new Runnable() {
                         @Override public void run() {
+                            loadingBlob = false;
                             dlStatus.setText(R.string.dl_done);
                             refreshState();
                         }
                     });
                 } catch (final Exception e) {
+                    Log.e(TAG, "download failed", e);
                     runOnUiThread(new Runnable() {
                         @Override public void run() {
+                            loadingBlob = false;
                             btnDownload.setEnabled(true);
                             btnPick.setEnabled(true);
                             dlProgress.setVisibility(View.GONE);
-                            dlStatus.setText(getString(R.string.err_download, e.getMessage()));
+                            dlStatus.setText(getString(R.string.err_download, describe(e)));
                         }
                     });
                 }
@@ -274,7 +359,14 @@ public final class MainActivity extends Activity {
     }
 
     private void handlePicked(final Uri uri) {
-        if (otherRegion == null) return;
+        if (otherRegion == null) {
+            // The activity was recreated behind the picker and the region
+            // probe hasn't reported yet. refreshState() replays this pick.
+            pendingPickUri = uri;
+            return;
+        }
+        if (loadingBlob) return;
+        loadingBlob = true;
         final String region = otherRegion;
         btnDownload.setEnabled(false);
         btnPick.setEnabled(false);
@@ -284,29 +376,34 @@ public final class MainActivity extends Activity {
         new Thread(new Runnable() {
             @Override public void run() {
                 try {
-                    File f = BlobLoader.importFromUri(MainActivity.this, uri, region);
-                    if (!BlobLoader.validate(f)) {
-                        //noinspection ResultOfMethodCallIgnored
-                        f.delete();
-                        throw new IOException("not a valid F21 bands blob");
-                    }
+                    // importFromUri() validates the blob before giving it its final name.
+                    BlobLoader.importFromUri(MainActivity.this, uri, region);
                     runOnUiThread(new Runnable() {
                         @Override public void run() {
+                            loadingBlob = false;
                             dlStatus.setText(R.string.picker_copied_hint);
                             refreshState();
                         }
                     });
                 } catch (final Exception e) {
+                    Log.e(TAG, "import failed", e);
                     runOnUiThread(new Runnable() {
                         @Override public void run() {
+                            loadingBlob = false;
                             btnDownload.setEnabled(true);
                             btnPick.setEnabled(true);
-                            dlStatus.setText(getString(R.string.err_pick_invalid));
+                            dlStatus.setText(getString(R.string.err_pick_invalid, describe(e)));
                         }
                     });
                 }
             }
         }).start();
+    }
+
+    /** Exception text for the UI; some exceptions carry no message. */
+    private static String describe(Throwable e) {
+        String m = e.getMessage();
+        return (m == null || m.isEmpty()) ? e.getClass().getSimpleName() : m;
     }
 
     // ─── Swap ─────────────────────────────────────────────────────────────

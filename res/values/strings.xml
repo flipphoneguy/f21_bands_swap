@@ -59,9 +59,19 @@
 
     <!-- Errors -->
     <string name="err_no_root">Root not available. This app needs Magisk root.</string>
-    <string name="err_unknown_region">Refusing to operate: current bands match neither US nor stock. See Info for details.</string>
+    <string name="err_unknown_region">Current bands match neither US nor stock, so the app can\'t tell what is on the modem. Swapping is disabled unless you override below.</string>
+    <string name="err_detect_failed">Couldn\'t read the modem partition to identify your bands: %1$s\n\nSwapping is disabled unless you override below.</string>
     <string name="err_download">Download failed: %1$s</string>
-    <string name="err_pick_invalid">That file doesn\'t look like a valid F21 bands blob.</string>
+    <string name="err_pick_invalid">Can\'t use that file: %1$s</string>
+
+    <!-- Unknown-bands override -->
+    <string name="status_region_unknown_override">current bands: UNKNOWN — override: flashing %1$s</string>
+    <string name="btn_override">Override — flash anyway</string>
+    <string name="override_title">Flash over unknown bands?</string>
+    <string name="override_warn">The md1img_a hash is the app\'s ONLY check that this is a pre-v3 F21 Pro with unmodified bands. It matched neither US nor stock, so the app cannot tell what is on the modem right now.\n\nIf this is a v3 (RED charging port, serial number starting F21PMQC25), flashing WILL soft-brick the modem. Continue only if you are certain this is a pre-v3 device and you accept that risk.\n\nIf you swap with backup, the current bands are saved to app storage as bands_unknown.tar.xz. The app cannot flash that backup back by itself; it is there for manual recovery (see the README).</string>
+    <string name="btn_override_confirm">I understand the risk — choose bands</string>
+    <string name="override_pick_title">Which bands do you want to flash?</string>
+    <string name="override_item">%1$s bands</string>
     <string name="err_swap">Swap failed: %1$s\n\nYour previous bands\' backup is in app storage. See Info for recovery instructions.</string>
 
     <!-- Info screen -->

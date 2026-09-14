@@ -4,7 +4,7 @@ One-tap on-device band swap (US ↔ stock) for the rooted DuoQin F21 Pro (pre-v3
 
 ## Compatibility
 
-**EXCLUSIVELY for rooted DuoQin F21 prior to v3.** v3 has a red charging port and serial number prefix `F21PMQC25`; running this on v3 will brick the modem (the app will refuse to flash if it detects incompatibility). Magisk is required (the app needs root and `su -mm` for the MMC ioctls). If you're not sure which revision you have, do not use this app.
+**EXCLUSIVELY for rooted DuoQin F21 prior to v3.** v3 has a red charging port and serial number prefix `F21PMQC25`; running this on v3 will brick the modem (the app refuses to flash when the live bands match neither known hash; the override described under Recovery bypasses that check, so treat it accordingly). Magisk is required (the app needs root and `su -mm` for the MMC ioctls). If you're not sure which revision you have, do not use this app.
 
 ## What it does
 
@@ -46,6 +46,8 @@ Substitute `stock` for `us` to flash the other direction. The script auto-instal
 
 The pre-flash backup blob lives at `/data/data/com.flipphoneguy.f21bands/files/bands_<region>.tar.xz`. If a flash fails or you want to revert manually, pull it, `tar -xJf`, and manually flash the four `.bin` files to their partitions from a computer (fastboot or recovery shell). The in-app "swap back" path runs the same flow with the previously-backed-up region as the new target.
 
+**Unknown bands override.** If the live `md1img_a` matches neither the US nor the stock hash, the app shows a warning instead of the swap buttons. The warning has an override: confirm it, pick US or stock, and the normal download / pick / swap flow runs for that target. The hash is the app's only compatibility check, so the override removes the v3 protection; use it only when you are sure of the hardware. A with-backup swap in that state saves the current bands as `bands_unknown.tar.xz`, which the app cannot flash back itself but which you can restore manually as above.
+
 ## How it actually works
 
 The full reverse-engineering trail, including every wrong turn, is in:
@@ -68,6 +70,8 @@ The full reverse-engineering trail, including every wrong turn, is in:
 ```
 
 Requires `aapt2`, `ecj`, `d8`, `apksigner`, `zip` (e.g. `pkg install aapt2 ecj d8 apksigner zip` in Termux), an `android.jar`, a `framework-res.apk`, and a debug keystore — paths in `build.sh`.
+
+On a desktop Linux machine the same script works with an Android SDK (build-tools + a platform) and either a JDK or Android Studio's bundled JBR: it finds the SDK via `ANDROID_SDK_ROOT`, `ANDROID_HOME`, or `~/Android/Sdk`, uses the platform `android.jar` in place of both Termux jars, and falls back from `ecj` to `javac`. `ANDROID_JAR`, `FRAMEWORK_RES`, and `KEYSTORE` can be overridden in the environment. The first run downloads `xz-1.9.jar` from Maven Central into `libs/`.
 
 For more on build, check out my [app building template](https://github.com/flipphoneguy/app-template)
 
