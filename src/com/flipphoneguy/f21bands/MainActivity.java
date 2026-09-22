@@ -108,8 +108,9 @@ public final class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Re-check on resume so we pick up freshly-flashed bands or freshly-loaded blobs.
-        refreshState();
+        // No re-probe here: each probe spawns su, and on some root setups su steals
+        // focus and re-triggers onResume, which would loop. onCreate probes once;
+        // download/import/swap re-probe themselves when they change state.
     }
 
     /** Background-thread state probe → UI render. */
